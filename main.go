@@ -19,7 +19,6 @@ import (
 	"github.com/twa16/go-cas/client"
 	"fmt"
 	"os"
-	"time"
 )
 
 func main() {
@@ -27,13 +26,15 @@ func main() {
 	config.ServerHostname = "https://login.gmu.edu"
 	config.IgnoreSSLErrors = false
 
-	config.StartLocalAuthenticationProcess()
+	resp := config.StartLocalAuthenticationProcess()
+	fmt.Println(resp)
+	/*
 	for true {
 		if config.Response != nil {
 			fmt.Printf("Logged in as %s\n", config.Response.Username)
 			break
 		}
 		time.Sleep(1 * time.Second)
-	}
+	}*/
 	os.Exit(0)
 }

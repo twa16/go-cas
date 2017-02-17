@@ -25,13 +25,16 @@ import (
 	"io/ioutil"
 	"strings"
 	"io"
+	"context"
+	"time"
 )
 
 type CASServerConfig struct {
 	ServerHostname   string
 	IgnoreSSLErrors  bool
 	httpServerCloser io.Closer
-	Response         *CASValidationResponse
+	ServiceTicket    string
+	Server           *http.Server
 }
 
 type CASValidationResponse struct {
@@ -39,18 +42,24 @@ type CASValidationResponse struct {
 	Username string
 }
 
-func (server *CASServerConfig) StartLocalAuthenticationProcess() {
+func (server *CASServerConfig) StartLocalAuthenticationProcess() string {
 	userAuthURL := server.ServerHostname + "/login?service=http%3A%2F%2Flocalhost%3A8883%2Fcaslogin"
 	fmt.Println("Go to: "+userAuthURL)
 	mux := goji.NewMux()
 	mux.HandleFunc(pat.Get("/caslogin"), server.handleCASCallback)
-	go http.ListenAndServe(":8883", mux)
+	server.Server = &http.Server{Addr: ":8883", Handler: mux}
+	server.Server.ListenAndServe()
+	return server.ServiceTicket
 }
 
 func (server *CASServerConfig)handleCASCallback(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	server.Response, _ = server.ValidateTicket(r.FormValue("ticket"))
+	server.ServiceTicket = r.FormValue("ticket")
 	fmt.Fprint(w, "You may now close the window.")
+	go func() {
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+		server.Server.Shutdown(ctx)
+	}()
 }
 
 func (server *CASServerConfig) ValidateTicket(ticket string) (*CASValidationResponse, error){
